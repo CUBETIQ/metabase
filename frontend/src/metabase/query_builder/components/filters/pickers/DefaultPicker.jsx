@@ -8,10 +8,13 @@ import FieldValuesWidget from "metabase/components/FieldValuesWidget";
 
 import { getFilterArgumentFormatOptions } from "metabase/lib/schema_metadata";
 
-import type Filter from "metabase-lib/lib/queries/structured/Filter";
+import type { FilterOperator } from "metabase-types/types/Metadata";
+import type { Field } from "metabase-types/types/Query";
 
 type Props = {
-  filter: Filter,
+  fields: Field[],
+  operator: FilterOperator,
+  values: any[],
   setValue: (index: number, value: any) => void,
   setValues: (value: any[]) => void,
   onCommit: () => void,
@@ -22,7 +25,9 @@ type Props = {
 };
 
 export default function DefaultPicker({
-  filter,
+  fields,
+  values,
+  operator,
   setValue,
   setValues,
   onCommit,
@@ -31,26 +36,19 @@ export default function DefaultPicker({
   minWidth,
   maxWidth,
 }: Props) {
-  const operator = filter.operator();
   if (!operator) {
     return <div className={className} />;
   }
 
-  const dimension = filter.dimension();
-  const field = dimension && dimension.field();
-  const operatorFields = operator.fields || [];
-  const fieldWidgets = operatorFields
+  const fieldWidgets = (operator.fields || [])
     .map((operatorField, index) => {
-      let values, onValuesChange;
       const placeholder =
         (operator.placeholders && operator.placeholders[index]) || undefined;
-      if (operator.multi) {
-        values = filter.arguments();
-        onValuesChange = values => setValues(values);
-      } else {
-        values = [filter.arguments()[index]];
-        onValuesChange = values => setValue(index, values[0]);
-      }
+      const inputValues = operator.multi ? values : [values[index]];
+      const onValuesChange = operator.multi
+        ? values => setValues(values)
+        : values => setValue(index, values[0]);
+
       if (operatorField.type === "hidden") {
         return null;
       } else if (operatorField.type === "select") {
@@ -65,21 +63,16 @@ export default function DefaultPicker({
             onCommit={onCommit}
           />
         );
-      } else if (field && field.id != null) {
-        // get the underling field if the query is nested
-        let underlyingField = field;
-        let sourceField;
-        while ((sourceField = underlyingField.sourceField())) {
-          underlyingField = sourceField;
-        }
+      } else if (fields) {
         return (
           <FieldValuesWidget
+            key={index}
             className="input"
-            value={(values: Array<string>)}
+            value={(inputValues: Array<string>)}
             onChange={onValuesChange}
             multi={operator.multi}
             placeholder={placeholder}
-            fields={underlyingField ? [underlyingField] : []}
+            fields={fields}
             disablePKRemappingForSearch={true}
             autoFocus={index === 0}
             alwaysShowOptions={operator.fields.length === 1}
@@ -93,7 +86,7 @@ export default function DefaultPicker({
         return (
           <TextPicker
             key={index}
-            values={(values: Array<string>)}
+            values={(inputValues: Array<string>)}
             onValuesChange={onValuesChange}
             placeholder={placeholder}
             multi={operator.multi}
@@ -104,7 +97,7 @@ export default function DefaultPicker({
         return (
           <NumberPicker
             key={index}
-            values={(values: Array<number | null>)}
+            values={(inputValues: Array<number | null>)}
             onValuesChange={onValuesChange}
             placeholder={placeholder}
             multi={operator.multi}
@@ -115,6 +108,7 @@ export default function DefaultPicker({
       return null;
     })
     .filter(f => f);
+
   if (fieldWidgets.length > 0) {
     const Layout = DefaultLayout;
     // TODO: custom layouts for different operators

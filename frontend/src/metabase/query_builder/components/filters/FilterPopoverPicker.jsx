@@ -37,7 +37,11 @@ export default class FilterPopoverPicker extends React.Component {
     };
 
     const dimension = filter.dimension();
+    const operator = filter.operator();
     const field = dimension.field();
+    const values = filter.arguments();
+    const fields = field && field.id ? getUnderlyingField(field) : undefined;
+
     return field.isTime() ? (
       <TimePicker
         className={className}
@@ -59,7 +63,9 @@ export default class FilterPopoverPicker extends React.Component {
     ) : (
       <DefaultPicker
         className={className}
-        filter={filter}
+        fields={fields}
+        operator={operator}
+        values={values}
         setValue={setValue}
         setValues={setValues}
         onCommit={onCommit}
@@ -69,4 +75,14 @@ export default class FilterPopoverPicker extends React.Component {
       />
     );
   }
+}
+
+function getUnderlyingField(field) {
+  let underlyingField = field;
+  let sourceField;
+  while ((sourceField = underlyingField.sourceField())) {
+    underlyingField = sourceField;
+  }
+
+  return underlyingField ? [underlyingField] : [];
 }
